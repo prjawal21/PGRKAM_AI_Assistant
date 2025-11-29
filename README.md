@@ -53,7 +53,8 @@ pgrkam-llm-monorepo/
 │   │   ├── hooks/       # Speech recognition/synthesis
 │   │   └── i18n/        # Translations
 │   └── public/          # Logo, assets
-└── .env.example         # Environment template
+└── .env.example         # Environment template'
+└── project_documents/      # PPTs, Literature review, project reports
 ```
 
 ---
