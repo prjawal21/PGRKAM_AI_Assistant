@@ -1,0 +1,82 @@
+.language-selector {
+    padding: 20px;
+}
+
+.language-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #667eea;
+    margin-bottom: 12px;
+}
+
+.language-options {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.language-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 24px;
+    border: 2px solid rgba(102, 126, 234, 0.2);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+}
+
+.language-option:hover {
+    border-color: rgba(102, 126, 234, 0.5);
+    background: rgba(102, 126, 234, 0.1);
+    transform: translateY(-2px);
+}
+
+.language-option.active {
+    border-color: #667eea;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.language-native {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.language-english {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Compact mode for dropdowns */
+.language-selector-compact {
+    padding: 8px 12px;
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.language-selector-compact:hover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.15);
+}
+
+.language-selector-compact:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+.language-selector-compact option {
+    background: #2a2a3e;
+    color: #fff;
+}
