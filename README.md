@@ -11,6 +11,7 @@ A full-stack multilingual chatbot application providing job search assistance, c
 - **Auto Language Detection**: Automatically detects user's speaking/typing language
 - **Pure Script Output**: No language mixing in responses
 - **Speech-to-Text**: Voice input support for all languages
+- **Text-to-Speech**: Premium AI voice output using ElevenLabs API for all languages
 
 ### AI-Powered Assistance
 - **Groq Llama-3.3-70b**: Advanced LLM for intelligent responses
@@ -66,6 +67,7 @@ pgrkam-llm-monorepo/
 - **Node.js 18+**
 - **MongoDB** (local or Atlas)
 - **Groq API Key** ([Get one here](https://console.groq.com))
+- **ElevenLabs API Key** ([Get one here](https://elevenlabs.io)) - For text-to-speech
 
 ### Backend Setup
 
@@ -100,6 +102,7 @@ MONGODB_URI=mongodb://localhost:27017
 DATABASE_NAME=pgrkam
 JWT_SECRET=your-super-secret-jwt-key-min-32-chars
 GROQ_API_KEY=gsk_your_groq_api_key_here
+ELEVENLABS_API_KEY=sk_your_elevenlabs_api_key_here
 CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
@@ -150,6 +153,9 @@ Frontend runs at: `http://localhost:5173`
 - `GET /api/chat/session/{id}` - Get session history
 - `DELETE /api/chat/session/{id}` - Delete session
 
+### Text-to-Speech
+- `POST /api/tts` - Convert text to speech using ElevenLabs
+
 ---
 
 ## 🌐 Environment Variables
@@ -160,6 +166,7 @@ Frontend runs at: `http://localhost:5173`
 | `DATABASE_NAME` | Database name | `pgrkam` |
 | `JWT_SECRET` | Secret for JWT tokens (32+ chars) | `your-secret-key` |
 | `GROQ_API_KEY` | Groq API key | `gsk_...` |
+| `ELEVENLABS_API_KEY` | ElevenLabs API key for TTS | `sk_...` |
 | `CORS_ORIGINS` | Allowed CORS origins | `http://localhost:5173` |
 
 ---
@@ -170,6 +177,7 @@ Frontend runs at: `http://localhost:5173`
 - **FastAPI** - Modern Python web framework
 - **MongoDB** - NoSQL database with Motor (async driver)
 - **Groq** - LLM API (Llama-3.3-70b-versatile)
+- **ElevenLabs** - Premium text-to-speech API
 - **JWT** - Secure authentication
 - **Bcrypt** - Password hashing
 - **Pydantic** - Data validation
@@ -194,8 +202,9 @@ Frontend runs at: `http://localhost:5173`
    - Training courses
    - Career guidance
 4. **Use Voice Input** - Click microphone icon to speak
-5. **View History** - Access past conversations
-6. **Update Profile** - Add skills, education, location
+5. **Listen to Responses** - Click speaker icon (🔉) on AI messages to hear them
+6. **View History** - Access past conversations
+7. **Update Profile** - Add skills, education, location
 
 ---
 
