@@ -21,6 +21,7 @@ const ProfilePage = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showSuccessToast, setShowSuccessToast] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [showAvatarModal, setShowAvatarModal] = useState(false);
     const [passwordForm, setPasswordForm] = useState({
         currentPassword: '',
         newPassword: '',
@@ -32,12 +33,17 @@ const ProfilePage = () => {
         district: '',
         education: '',
         skills: '',
-        careerSummary: ''
+        careerSummary: '',
+        avatar: 'default.png',
+        persona: '',
+        focus: '',
+        experienceLevel: '',
+        gender: ''
     });
 
-    // Mock statistics - will be replaced with real data later
-    const [stats] = useState({
-        totalChats: 12,
+    // Activity statistics
+    const [stats, setStats] = useState({
+        totalChats: 0,
         lastActive: new Date().toLocaleDateString(),
         mostDiscussedTopic: 'Job Search',
         preferredCategory: 'IT & Software'
@@ -45,7 +51,29 @@ const ProfilePage = () => {
 
     useEffect(() => {
         fetchProfile();
+        fetchChatHistory();
     }, []);
+
+    const fetchChatHistory = async () => {
+        try {
+            const res = await api.get('/api/chat/sessions', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            console.log('Chat history response:', res.data);
+
+            let chatCount = 0;
+            if (Array.isArray(res.data)) {
+                chatCount = res.data.length;
+            } else if (res.data?.sessions && Array.isArray(res.data.sessions)) {
+                chatCount = res.data.sessions.length;
+            }
+
+            console.log('Chat count:', chatCount);
+            setStats(prev => ({ ...prev, totalChats: chatCount }));
+        } catch (err) {
+            console.error('Failed to fetch chat history:', err);
+        }
+    };
 
     const fetchProfile = async () => {
         try {
@@ -60,7 +88,12 @@ const ProfilePage = () => {
                 district: res.data.profile?.district || '',
                 education: res.data.profile?.education || '',
                 skills: res.data.profile?.skills?.join(', ') || '',
-                careerSummary: res.data.profile?.careerSummary || ''
+                careerSummary: res.data.profile?.careerSummary || '',
+                avatar: res.data.profile?.avatar || 'default.png',
+                persona: res.data.profile?.persona || '',
+                focus: res.data.profile?.focus || '',
+                experienceLevel: res.data.profile?.experienceLevel || '',
+                gender: res.data.profile?.gender || ''
             });
         } catch (err) {
             console.error('Failed to fetch profile:', err);
@@ -77,7 +110,12 @@ const ProfilePage = () => {
                     district: editForm.district,
                     education: editForm.education,
                     careerSummary: editForm.careerSummary,
-                    skills: editForm.skills.split(',').map(s => s.trim()).filter(Boolean)
+                    skills: editForm.skills.split(',').map(s => s.trim()).filter(Boolean),
+                    avatar: editForm.avatar,
+                    persona: editForm.persona,
+                    focus: editForm.focus,
+                    experienceLevel: editForm.experienceLevel,
+                    gender: editForm.gender
                 }
             };
 
@@ -239,7 +277,14 @@ const ProfilePage = () => {
                         >
                             <div style={styles.cardHeader}>
                                 <div style={styles.avatar}>
-                                    {profile?.name?.charAt(0).toUpperCase() || 'U'}
+                                    <img
+                                        src={`/pgrkam_avatar/${profile?.profile?.avatar || 'default.png'}`}
+                                        alt="User Avatar"
+                                        style={styles.avatarImageMain}
+                                        onError={(e) => {
+                                            e.target.src = '/pgrkam_avatar/default.png';
+                                        }}
+                                    />
                                 </div>
                                 <h2 style={styles.userName}>{profile?.name || 'User'}</h2>
                                 <p style={styles.userEmail}>{profile?.email || ''}</p>
@@ -257,6 +302,40 @@ const ProfilePage = () => {
                             <button style={styles.editButton} onClick={() => setShowEditModal(true)}>
                                 ✏️ {t('editProfile')}
                             </button>
+                        </motion.div>
+
+                        {/* Profile Overview Card */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.15 }}
+                            style={styles.card}
+                        >
+                            <h3 style={styles.sectionTitle}>{t('profileOverview')}</h3>
+                            <div style={styles.personaGrid}>
+                                <div style={styles.personaItem}>
+                                    <span style={styles.personaLabel}>{t('userPersona')}</span>
+                                    <span style={styles.personaValue}>{profile?.profile?.persona || t('notProvided')}</span>
+                                </div>
+                                <div style={styles.personaItem}>
+                                    <span style={styles.personaLabel}>{t('focus')}</span>
+                                    <span style={styles.personaValue}>{profile?.profile?.focus || t('notProvided')}</span>
+                                </div>
+                                <div style={styles.personaItem}>
+                                    <span style={styles.personaLabel}>{t('experienceLevel')}</span>
+                                    <span style={styles.personaValue}>
+                                        {profile?.profile?.experienceLevel ? t(profile.profile.experienceLevel.toLowerCase()) : t('notProvided')}
+                                    </span>
+                                </div>
+                                {profile?.profile?.gender && (
+                                    <div style={styles.personaItem}>
+                                        <span style={styles.personaLabel}>{t('gender')}</span>
+                                        <span style={styles.personaValue}>
+                                            {t(profile.profile.gender.toLowerCase())}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </motion.div>
 
                         {/* Skill Badges */}
@@ -309,30 +388,52 @@ const ProfilePage = () => {
                             </p>
                         </motion.div>
 
-                        {/* Activity Statistics */}
+                        {/* Activity Insights - Redesigned */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.4 }}
                             style={styles.card}
                         >
-                            <h3 style={styles.sectionTitle}>{t('activityStatistics')}</h3>
-                            <div style={styles.statsGrid}>
-                                <div style={styles.statItem}>
-                                    <div style={styles.statValue}>{stats.totalChats}</div>
-                                    <div style={styles.statLabel}>{t('totalChats')}</div>
+                            <h3 style={styles.sectionTitle}>📊 Activity Insights</h3>
+
+                            {/* Main Stats Row */}
+                            <div style={styles.insightsMainRow}>
+                                {/* Total Chats - Large Circle */}
+                                <div style={styles.mainStatCircle}>
+                                    <div style={styles.circleGradient}>
+                                        <div style={styles.circleInner}>
+                                            <div style={styles.mainStatValue}>{stats.totalChats}</div>
+                                            <div style={styles.mainStatLabel}>{t('totalChats')}</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div style={styles.statItem}>
-                                    <div style={styles.statValue}>{stats.lastActive}</div>
-                                    <div style={styles.statLabel}>{t('lastActive')}</div>
+
+                                {/* Side Stats */}
+                                <div style={styles.sideStatsColumn}>
+                                    <div style={styles.sideStatItem}>
+                                        <div style={styles.sideStatIcon}>📅</div>
+                                        <div>
+                                            <div style={styles.sideStatValue}>{stats.lastActive}</div>
+                                            <div style={styles.sideStatLabel}>{t('lastActive')}</div>
+                                        </div>
+                                    </div>
+                                    <div style={styles.sideStatItem}>
+                                        <div style={styles.sideStatIcon}>💼</div>
+                                        <div>
+                                            <div style={styles.sideStatValue}>{stats.mostDiscussedTopic}</div>
+                                            <div style={styles.sideStatLabel}>{t('mostDiscussed')}</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div style={styles.statItem}>
-                                    <div style={styles.statValue}>{stats.mostDiscussedTopic}</div>
-                                    <div style={styles.statLabel}>{t('mostDiscussed')}</div>
-                                </div>
-                                <div style={styles.statItem}>
-                                    <div style={styles.statValue}>{stats.preferredCategory}</div>
-                                    <div style={styles.statLabel}>{t('preferredCategory')}</div>
+                            </div>
+
+                            {/* Preferred Category Badge */}
+                            <div style={styles.categoryBadge}>
+                                <span style={styles.categoryIcon}>⭐</span>
+                                <div>
+                                    <div style={styles.categoryLabel}>{t('preferredCategory')}</div>
+                                    <div style={styles.categoryValue}>{stats.preferredCategory}</div>
                                 </div>
                             </div>
                         </motion.div>
@@ -380,52 +481,122 @@ const ProfilePage = () => {
                         >
                             <h2>{t('editProfile')}</h2>
 
-                            <div style={styles.formField}>
-                                <label style={styles.formLabel}>{t('name')}</label>
-                                <input
-                                    style={styles.input}
-                                    value={editForm.name}
-                                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                />
+                            {/* Avatar Selection */}
+                            <div style={styles.modalAvatarContainer}>
+                                <div style={styles.modalAvatarCircle} onClick={() => setShowAvatarModal(true)}>
+                                    <img
+                                        src={`/pgrkam_avatar/${editForm.avatar || 'default.png'}`}
+                                        alt="Avatar"
+                                        style={styles.modalAvatarImage}
+                                        onError={(e) => {
+                                            e.target.src = '/pgrkam_avatar/default.png';
+                                        }}
+                                    />
+                                    <div style={styles.modalAvatarEditOverlay}>
+                                        <div style={styles.modalAvatarEditText}>✏️ {t('changeAvatar')}</div>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div style={styles.formField}>
-                                <label style={styles.formLabel}>{t('district')}</label>
-                                <input
-                                    style={styles.input}
-                                    value={editForm.district}
-                                    onChange={(e) => setEditForm({ ...editForm, district: e.target.value })}
-                                />
-                            </div>
+                            {/* Two-Column Grid for Form Fields */}
+                            <div style={styles.formGrid}>
+                                <div style={styles.formField}>
+                                    <label style={styles.formLabel}>{t('name')}</label>
+                                    <input
+                                        style={styles.input}
+                                        value={editForm.name}
+                                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                    />
+                                </div>
 
-                            <div style={styles.formField}>
-                                <label style={styles.formLabel}>{t('education')}</label>
-                                <input
-                                    style={styles.input}
-                                    value={editForm.education}
-                                    onChange={(e) => setEditForm({ ...editForm, education: e.target.value })}
-                                    placeholder={t('educationPlaceholder')}
-                                />
-                            </div>
+                                <div style={styles.formField}>
+                                    <label style={styles.formLabel}>{t('district')}</label>
+                                    <input
+                                        style={styles.input}
+                                        value={editForm.district}
+                                        onChange={(e) => setEditForm({ ...editForm, district: e.target.value })}
+                                    />
+                                </div>
 
-                            <div style={styles.formField}>
-                                <label style={styles.formLabel}>{t('skills')}</label>
-                                <input
-                                    style={styles.input}
-                                    value={editForm.skills}
-                                    onChange={(e) => setEditForm({ ...editForm, skills: e.target.value })}
-                                    placeholder={t('skillsPlaceholder')}
-                                />
-                            </div>
+                                <div style={styles.formField}>
+                                    <label style={styles.formLabel}>{t('education')}</label>
+                                    <input
+                                        style={styles.input}
+                                        value={editForm.education}
+                                        onChange={(e) => setEditForm({ ...editForm, education: e.target.value })}
+                                        placeholder={t('educationPlaceholder')}
+                                    />
+                                </div>
 
-                            <div style={styles.formField}>
-                                <label style={styles.formLabel}>{t('careerSummary')}</label>
-                                <textarea
-                                    style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }}
-                                    value={editForm.careerSummary}
-                                    onChange={(e) => setEditForm({ ...editForm, careerSummary: e.target.value })}
-                                    placeholder={t('careerSummaryInputPlaceholder')}
-                                />
+                                <div style={styles.formField}>
+                                    <label style={styles.formLabel}>{t('skills')}</label>
+                                    <input
+                                        style={styles.input}
+                                        value={editForm.skills}
+                                        onChange={(e) => setEditForm({ ...editForm, skills: e.target.value })}
+                                        placeholder={t('skillsPlaceholder')}
+                                    />
+                                </div>
+
+                                <div style={styles.formField}>
+                                    <label style={styles.formLabel}>{t('userPersona')}</label>
+                                    <input
+                                        style={styles.input}
+                                        value={editForm.persona}
+                                        onChange={(e) => setEditForm({ ...editForm, persona: e.target.value })}
+                                        placeholder={t('personaPlaceholder')}
+                                    />
+                                </div>
+
+                                <div style={styles.formField}>
+                                    <label style={styles.formLabel}>{t('focus')}</label>
+                                    <input
+                                        style={styles.input}
+                                        value={editForm.focus}
+                                        onChange={(e) => setEditForm({ ...editForm, focus: e.target.value })}
+                                        placeholder={t('focusPlaceholder')}
+                                    />
+                                </div>
+
+                                <div style={styles.formField}>
+                                    <label style={styles.formLabel}>{t('experienceLevel')}</label>
+                                    <select
+                                        style={styles.select}
+                                        value={editForm.experienceLevel}
+                                        onChange={(e) => setEditForm({ ...editForm, experienceLevel: e.target.value })}
+                                    >
+                                        <option value="">Select...</option>
+                                        <option value="Beginner">Beginner</option>
+                                        <option value="Intermediate">Intermediate</option>
+                                        <option value="Advanced">Advanced</option>
+                                        <option value="Expert">Expert</option>
+                                    </select>
+                                </div>
+
+                                <div style={styles.formField}>
+                                    <label style={styles.formLabel}>{t('gender')}</label>
+                                    <select
+                                        style={styles.select}
+                                        value={editForm.gender}
+                                        onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+                                    >
+                                        <option value="">Select...</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                        <option value="Prefer not to say">Prefer not to say</option>
+                                    </select>
+                                </div>
+
+                                <div style={{ ...styles.formField, gridColumn: '1 / -1' }}>
+                                    <label style={styles.formLabel}>{t('careerSummary')}</label>
+                                    <textarea
+                                        style={{ ...styles.input, minHeight: '100px', resize: 'vertical' }}
+                                        value={editForm.careerSummary}
+                                        onChange={(e) => setEditForm({ ...editForm, careerSummary: e.target.value })}
+                                        placeholder={t('careerSummaryInputPlaceholder')}
+                                    />
+                                </div>
                             </div>
 
                             <div style={styles.modalButtons}>
@@ -504,6 +675,56 @@ const ProfilePage = () => {
                 )}
             </AnimatePresence>
 
+            {/* Avatar Selection Modal */}
+            <AnimatePresence>
+                {showAvatarModal && (
+                    <motion.div
+                        className="settings-modal-overlay"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowAvatarModal(false)}
+                    >
+                        <motion.div
+                            className="settings-modal"
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <h2>{t('selectAvatar')}</h2>
+                            <div style={styles.avatarGrid}>
+                                {['male1.png', 'male2.png', 'female1.png', 'female2.png', 'studentboy.png', 'studentgirl.png', 'oldman.png', 'oldwomen.png', 'default.png'].map((avatar) => (
+                                    <div
+                                        key={avatar}
+                                        style={{
+                                            ...styles.avatarOption,
+                                            ...(editForm.avatar === avatar ? styles.avatarOptionSelected : {})
+                                        }}
+                                        onClick={() => {
+                                            setEditForm({ ...editForm, avatar });
+                                            setShowAvatarModal(false);
+                                        }}
+                                    >
+                                        <img
+                                            src={`/pgrkam_avatar/${avatar}`}
+                                            alt={avatar}
+                                            style={styles.avatarOptionImage}
+                                            onError={(e) => {
+                                                e.target.src = '/pgrkam_avatar/default.png';
+                                            }}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <button className="settings-close" onClick={() => setShowAvatarModal(false)}>
+                                {t('cancel')}
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Success Toast */}
             <AnimatePresence>
                 {showSuccessToast && (
@@ -570,8 +791,10 @@ const styles = {
     },
     dashboard: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: '24px'
+        gridTemplateColumns: '1fr 1fr',
+        gap: '24px',
+        maxWidth: '1400px',
+        margin: '0 auto'
     },
     card: {
         background: 'rgba(0, 0, 0, 0.35)',
@@ -803,6 +1026,223 @@ const styles = {
         fontSize: '14px',
         fontWeight: '600',
         zIndex: 2000
+    },
+    avatarImageMain: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        borderRadius: '50%'
+    },
+    // Persona Card Styles
+    personaGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        gap: '16px'
+    },
+    personaItem: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px'
+    },
+    personaLabel: {
+        fontSize: '12px',
+        color: 'rgba(255, 255, 255, 0.6)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+        fontWeight: '500'
+    },
+    personaValue: {
+        fontSize: '16px',
+        color: 'rgba(255, 255, 255, 0.95)',
+        fontWeight: '500'
+    },
+    // Activity Insights Styles
+    insightsMainRow: {
+        display: 'flex',
+        gap: '24px',
+        alignItems: 'center',
+        marginBottom: '20px'
+    },
+    mainStatCircle: {
+        flex: '0 0 auto'
+    },
+    circleGradient: {
+        width: '140px',
+        height: '140px',
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        padding: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    circleInner: {
+        width: '100%',
+        height: '100%',
+        borderRadius: '50%',
+        background: 'rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    mainStatValue: {
+        fontSize: '48px',
+        fontWeight: '700',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+        lineHeight: '1'
+    },
+    mainStatLabel: {
+        fontSize: '12px',
+        color: 'rgba(255, 255, 255, 0.7)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+        marginTop: '8px',
+        textAlign: 'center'
+    },
+    sideStatsColumn: {
+        flex: '1',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px'
+    },
+    sideStatItem: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '12px 16px',
+        background: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: '12px',
+        border: '1px solid rgba(255, 255, 255, 0.1)'
+    },
+    sideStatIcon: {
+        fontSize: '24px',
+        width: '40px',
+        height: '40px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(102, 126, 234, 0.2)',
+        borderRadius: '10px'
+    },
+    sideStatValue: {
+        fontSize: '16px',
+        fontWeight: '600',
+        color: 'rgba(255, 255, 255, 0.95)'
+    },
+    sideStatLabel: {
+        fontSize: '11px',
+        color: 'rgba(255, 255, 255, 0.6)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px'
+    },
+    categoryBadge: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '16px',
+        background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%)',
+        borderRadius: '12px',
+        border: '1px solid rgba(102, 126, 234, 0.3)'
+    },
+    categoryIcon: {
+        fontSize: '28px'
+    },
+    categoryLabel: {
+        fontSize: '11px',
+        color: 'rgba(255, 255, 255, 0.6)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px'
+    },
+    categoryValue: {
+        fontSize: '18px',
+        fontWeight: '600',
+        color: 'rgba(255, 255, 255, 0.95)',
+        marginTop: '4px'
+    },
+    // Form Grid Styles
+    formGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '20px',
+        marginBottom: '24px'
+    },
+    // Modal Avatar Styles
+    modalAvatarContainer: {
+        display: 'flex',
+        justifyContent: 'center',
+        marginBottom: '24px'
+    },
+    modalAvatarCircle: {
+        width: '120px',
+        height: '120px',
+        borderRadius: '50%',
+        overflow: 'hidden',
+        cursor: 'pointer',
+        position: 'relative',
+        border: '3px solid rgba(102, 126, 234, 0.5)',
+        transition: 'all 0.3s ease'
+    },
+    modalAvatarImage: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover'
+    },
+    modalAvatarEditOverlay: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: 'rgba(0, 0, 0, 0.7)',
+        padding: '8px',
+        opacity: 0,
+        transition: 'opacity 0.3s ease'
+    },
+    modalAvatarEditText: {
+        color: 'white',
+        fontSize: '12px',
+        textAlign: 'center'
+    },
+    // Avatar Grid Styles
+    avatarGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '16px',
+        marginBottom: '24px'
+    },
+    avatarOption: {
+        width: '100px',
+        height: '100px',
+        borderRadius: '50%',
+        overflow: 'hidden',
+        cursor: 'pointer',
+        border: '3px solid rgba(255, 255, 255, 0.2)',
+        transition: 'all 0.3s ease'
+    },
+    avatarOptionSelected: {
+        border: '3px solid #667eea',
+        boxShadow: '0 0 20px rgba(102, 126, 234, 0.5)'
+    },
+    avatarOptionImage: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover'
+    },
+    // Select Dropdown Style
+    select: {
+        width: '100%',
+        padding: '12px',
+        background: 'rgba(255, 255, 255, 0.1)',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        borderRadius: '8px',
+        color: 'white',
+        fontSize: '14px',
+        cursor: 'pointer',
+        transition: 'all 0.2s'
     }
 };
 

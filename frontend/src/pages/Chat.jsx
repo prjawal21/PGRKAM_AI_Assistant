@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useRef } from "react";
+import { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { api } from "../api/api";
 import { AuthContext } from "../context/AuthContext";
 import Sidebar from "../components/Sidebar";
@@ -7,6 +7,7 @@ import LanguageSwitcher from "../components/LanguageSwitcher";
 import VoiceControls from "../components/VoiceControls";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
+import { useElevenLabsTTS } from "../hooks/useElevenLabsTTS";
 
 export default function Chat() {
   const { token } = useContext(AuthContext);
@@ -34,13 +35,39 @@ export default function Chat() {
     supported: speechSupported,
   } = useSpeechRecognition(language, speechToTextEnabled && voiceEnabled);
 
-  // Speech Synthesis Hook
+  // Web Speech API for Hindi/Punjabi
   const {
-    isSpeaking,
-    speak,
-    stop: stopSpeaking,
-    supported: synthesisSupported,
+    isSpeaking: isWebSpeaking,
+    speak: webSpeak,
+    stop: stopWebSpeaking,
   } = useSpeechSynthesis(language, textToSpeechEnabled && voiceEnabled);
+
+  // ElevenLabs for English
+  const {
+    isSpeaking: isElevenLabsSpeaking,
+    speak: elevenLabsSpeak,
+    stop: stopElevenLabs,
+  } = useElevenLabsTTS();
+
+  const isSpeaking = isWebSpeaking || isElevenLabsSpeaking;
+
+  const speak = useCallback(
+    (text, options = {}) => {
+      const lang = options.lang || language;
+
+      if (lang === "en-US") {
+        elevenLabsSpeak(text);
+      } else if (lang === "hi-IN" || lang === "pa-IN") {
+        webSpeak(text, options);
+      }
+    },
+    [language, elevenLabsSpeak, webSpeak]
+  );
+
+  const stopSpeaking = useCallback(() => {
+    stopElevenLabs();
+    stopWebSpeaking();
+  }, [stopElevenLabs, stopWebSpeaking]);
 
   // Fetch user profile on mount
   useEffect(() => {
@@ -52,14 +79,14 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Update input when transcript changes (speech-to-text)
+  // Update input when transcript changes
   useEffect(() => {
     if (transcript && speechToTextEnabled && voiceEnabled) {
       setInput(transcript);
     }
   }, [transcript, speechToTextEnabled, voiceEnabled]);
 
-  // Auto speak AI responses when text-to-speech is enabled
+  // Auto speak AI responses
   useEffect(() => {
     if (
       messages.length > 0 &&
@@ -69,7 +96,6 @@ export default function Chat() {
     ) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === "assistant" && lastMessage.text) {
-        // Small delay to ensure message is fully rendered
         const timer = setTimeout(() => {
           speak(lastMessage.text || lastMessage.content, { lang: language });
         }, 500);
@@ -109,35 +135,31 @@ export default function Chat() {
     e.preventDefault();
     if (!input.trim() || loading) return;
 
-    // Stop listening if active
-    if (isListening) {
-      stopListening();
-    }
-
-    // Stop any ongoing speech
-    if (isSpeaking) {
-      stopSpeaking();
-    }
+    if (isListening) stopListening();
+    if (isSpeaking) stopSpeaking();
 
     const userMessage = input.trim();
     setInput("");
     setError("");
     resetTranscript();
 
-    // Add user message to UI immediately
-    const userMsg = { role: "user", text: userMessage, content: userMessage };
+    // Add USER message w/ timestamp ✔
+    const userMsg = {
+      role: "user",
+      text: userMessage,
+      content: userMessage,
+      timestamp: new Date().toISOString(),
+    };
     setMessages((prev) => [...prev, userMsg]);
 
     setLoading(true);
 
     try {
-      // Build history from current messages
       const history = messages.map((msg) => ({
         role: msg.role,
         content: msg.content || msg.text,
       }));
 
-      // Call API with message, history, and user_profile
       const res = await api.post(
         "/api/chat",
         {
@@ -150,21 +172,23 @@ export default function Chat() {
         }
       );
 
-      // Add AI response to messages
+      // Add ASSISTANT message w/ timestamp ✔
       const aiMsg = {
         role: "assistant",
         text: res.data.response,
         content: res.data.response,
+        timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, aiMsg]);
-
-      // Auto-speak will be triggered by useEffect above
     } catch (err) {
       setError(err.response?.data?.detail || "Error: Unable to get response.");
+
+      // Add ERROR message w/ timestamp ✔
       const errorMsg = {
         role: "assistant",
         text: err.response?.data?.detail || "Error: Unable to get response.",
         content: err.response?.data?.detail || "Error: Unable to get response.",
+        timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
@@ -183,10 +207,7 @@ export default function Chat() {
             <p style={styles.subtitle}>Start a conversation with AI assistant</p>
           </div>
           <div style={styles.headerControls}>
-            <LanguageSwitcher
-              currentLang={language}
-              onLanguageChange={setLanguage}
-            />
+            <LanguageSwitcher currentLang={language} onLanguageChange={setLanguage} />
           </div>
         </div>
 
@@ -204,7 +225,7 @@ export default function Chat() {
           />
         </div>
 
-        {/* Messages Container */}
+        {/* Messages */}
         <div style={styles.messagesContainer}>
           {messages.length === 0 ? (
             <div style={styles.emptyState}>
@@ -219,7 +240,12 @@ export default function Chat() {
             </div>
           ) : (
             messages.map((msg, index) => (
-              <MessageBubble key={index} message={msg} />
+              <MessageBubble
+                key={index}
+                message={msg}
+                isSpeaking={isSpeaking}
+                onSpeak={(text) => speak(text, { lang: language })}
+              />
             ))
           )}
 
@@ -235,9 +261,7 @@ export default function Chat() {
           )}
 
           {(error || speechError) && (
-            <div style={styles.errorBubble}>
-              {error || speechError}
-            </div>
+            <div style={styles.errorBubble}>{error || speechError}</div>
           )}
 
           <div ref={messagesEndRef} />
@@ -258,6 +282,7 @@ export default function Chat() {
               {isListening ? "🛑" : "🎤"}
             </button>
           )}
+
           <input
             style={styles.input}
             placeholder={
@@ -270,6 +295,7 @@ export default function Chat() {
             disabled={loading || isListening}
             autoFocus
           />
+
           <button
             type="submit"
             style={{

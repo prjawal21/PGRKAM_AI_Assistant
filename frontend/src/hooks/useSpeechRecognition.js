@@ -1,113 +1,96 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from 'react';
 
-/**
- * Custom hook for speech-to-text using Web Speech API
- * @param {string} lang - Language code (e.g., 'en', 'hi', 'pa')
- * @param {boolean} enabled - Whether speech recognition is enabled
- * @returns {object} - Speech recognition state and controls
- */
-export function useSpeechRecognition(lang = "en", enabled = true) {
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [error, setError] = useState(null);
-  const recognitionRef = useRef(null);
+export function useSpeechRecognition(language = 'en-US', enabled = true) {
+    const [transcript, setTranscript] = useState('');
+    const [isListening, setIsListening] = useState(false);
+    const [error, setError] = useState('');
+    const [supported, setSupported] = useState(false);
 
-  // Convert language code to STT format
-  const getSttLang = (langCode) => {
-    const langMap = {
-      'en': 'en-US',
-      'hi': 'hi-IN',
-      'pa': 'pa-IN'
-    };
-    return langMap[langCode] || 'en-US';
-  };
+    const recognitionRef = useRef(null);
 
-  useEffect(() => {
-    // Check if browser supports Speech Recognition
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+    // Check if speech recognition is supported
+    useEffect(() => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        setSupported(!!SpeechRecognition);
 
-    if (!SpeechRecognition) {
-      setError("Speech recognition not supported in this browser");
-      return;
-    }
+        if (SpeechRecognition) {
+            recognitionRef.current = new SpeechRecognition();
+            recognitionRef.current.continuous = true;
+            recognitionRef.current.interimResults = true;
+            recognitionRef.current.lang = language;
 
-    // Initialize recognition
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = getSttLang(lang);
+            recognitionRef.current.onresult = (event) => {
+                let finalTranscript = '';
+                let interimTranscript = '';
 
-    recognition.onstart = () => {
-      setIsListening(true);
-      setError(null);
-    };
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript + ' ';
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
 
-    recognition.onresult = (event) => {
-      let interimTranscript = "";
-      let finalTranscript = "";
+                setTranscript((finalTranscript || interimTranscript).trim());
+            };
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript + " ";
-        } else {
-          interimTranscript += transcript;
+            recognitionRef.current.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                setError(`Speech recognition error: ${event.error}`);
+                setIsListening(false);
+            };
+
+            recognitionRef.current.onend = () => {
+                setIsListening(false);
+            };
         }
-      }
 
-      setTranscript(finalTranscript || interimTranscript);
+        return () => {
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+            }
+        };
+    }, [language]);
+
+    const startListening = useCallback(() => {
+        if (!supported || !enabled) {
+            setError('Speech recognition not supported or not enabled');
+            return;
+        }
+
+        try {
+            setError('');
+            setTranscript('');
+            recognitionRef.current?.start();
+            setIsListening(true);
+        } catch (err) {
+            console.error('Error starting speech recognition:', err);
+            setError('Failed to start speech recognition');
+        }
+    }, [supported, enabled]);
+
+    const stopListening = useCallback(() => {
+        try {
+            recognitionRef.current?.stop();
+            setIsListening(false);
+        } catch (err) {
+            console.error('Error stopping speech recognition:', err);
+        }
+    }, []);
+
+    const resetTranscript = useCallback(() => {
+        setTranscript('');
+        setError('');
+    }, []);
+
+    return {
+        transcript,
+        isListening,
+        error,
+        startListening,
+        stopListening,
+        resetTranscript,
+        supported
     };
-
-    recognition.onerror = (event) => {
-      setError(`Speech recognition error: ${event.error}`);
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-      }
-    };
-  }, [lang]);
-
-  const startListening = () => {
-    if (recognitionRef.current && enabled && !isListening) {
-      setTranscript("");
-      setError(null);
-      try {
-        recognitionRef.current.start();
-      } catch (err) {
-        setError("Failed to start speech recognition");
-      }
-    }
-  };
-
-  const stopListening = () => {
-    if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
-  };
-
-  const resetTranscript = () => {
-    setTranscript("");
-  };
-
-  return {
-    transcript,
-    isListening,
-    error,
-    startListening,
-    stopListening,
-    resetTranscript,
-    supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
-  };
 }
-

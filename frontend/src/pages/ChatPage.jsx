@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useContext } from 'react';
+import React, { useState, useRef, useEffect, useContext, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -11,6 +11,7 @@ import { api } from '../api/api';
 import { AuthContext } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useElevenLabsTTS } from '../hooks/useElevenLabsTTS';
 import '../styles/dock.css';
 
 /**
@@ -41,6 +42,22 @@ const ChatPage = () => {
         resetTranscript,
         supported: speechSupported
     } = useSpeechRecognition(language, true);  // Use language from context
+
+    // ElevenLabs TTS for all languages
+    const {
+        isSpeaking,
+        speak: elevenLabsSpeak,
+        stop: stopElevenLabs,
+    } = useElevenLabsTTS();
+
+    const speak = useCallback((text) => {
+        // Toggle: if already speaking, stop it
+        if (isSpeaking) {
+            stopElevenLabs();
+        } else {
+            elevenLabsSpeak(text);
+        }
+    }, [isSpeaking, elevenLabsSpeak, stopElevenLabs]);
 
     // Fetch user profile on mount
     useEffect(() => {
@@ -87,8 +104,8 @@ const ChatPage = () => {
                 id: `${sessionId}-${idx}`,
                 role: msg.role,
                 text: msg.content,
-                content: msg.content,
-                timestamp: new Date(msg.timestamp)
+                content: msg.content
+                // Don't include timestamp from backend to avoid timezone issues
             }));
 
             setMessages(loadedMessages);
@@ -312,8 +329,22 @@ const ChatPage = () => {
                                         </ReactMarkdown>
                                     </div>
                                     <div style={styles.messageTime}>
-                                        {msg.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {msg.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                                     </div>
+
+                                    {/* Speaker Icon for assistant messages */}
+                                    {msg.role === 'assistant' && (
+                                        <div
+                                            onClick={() => speak(msg.text || msg.content)}
+                                            style={{
+                                                ...styles.speakerIcon,
+                                                ...(isSpeaking ? styles.speakerIconActive : {})
+                                            }}
+                                            title={isSpeaking ? "Stop" : "Click to listen"}
+                                        >
+                                            {isSpeaking ? "🔊" : "🔉"}
+                                        </div>
+                                    )}
                                 </motion.div>
                             ))}
                         </AnimatePresence>
@@ -410,7 +441,8 @@ const styles = {
         maxWidth: '80%',
         padding: '12px 16px',
         borderRadius: '16px',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        overflow: 'visible'
     },
     userMessage: {
         alignSelf: 'flex-end',
@@ -421,7 +453,8 @@ const styles = {
     aiMessage: {
         alignSelf: 'flex-start',
         background: 'rgba(255, 255, 255, 0.95)',
-        color: '#1a1a1a'
+        color: '#1a1a1a',
+        position: 'relative'
     },
     messageContent: {
         fontSize: '15px',
@@ -511,6 +544,31 @@ const styles = {
         fontSize: '14px',
         overflowX: 'auto',
         margin: '8px 0'
+    },
+    // Speaker Icon Styles
+    speakerIcon: {
+        position: 'absolute',
+        bottom: '10px',
+        right: '10px',
+        width: '36px',
+        height: '36px',
+        borderRadius: '50%',
+        background: 'rgba(102, 126, 234, 0.2)',
+        border: '2px solid rgba(102, 126, 234, 0.4)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        fontSize: '18px',
+        transition: 'all 0.2s ease',
+        userSelect: 'none',
+        zIndex: 100,
+        pointerEvents: 'auto'
+    },
+    speakerIconActive: {
+        background: 'rgba(0, 200, 100, 0.2)',
+        borderColor: 'rgba(0, 200, 100, 0.5)',
+        animation: 'pulse 1.5s infinite'
     }
 };
 
